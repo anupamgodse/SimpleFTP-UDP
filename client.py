@@ -9,6 +9,7 @@ DATA=0
 ACK=1
 PACKET_TYPES={DATA:'0101010101010101', ACK:'1010101010101010'}
 SERVER_NAME = ''
+SERVER_IP = ''
 SERVER_PORT = 0
 FILENAME = ''
 WINDOW_SIZE = 0
@@ -20,7 +21,8 @@ FRAME_STORE = []
 LOCK_FRAME_STORE = threading.Lock()
 
 RTO = 0.5
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM);
+#sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM);
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM);
 
 timer = signal.ITIMER_REAL
 
@@ -57,7 +59,9 @@ def recv_acks():
     global FRAME_STORE
     global SEQ_NO
     #while(True):
-    ack = sock.recv(4096).decode()
+    #ack = sock.recv(4096).decode()
+    ack_enc, server_addr = sock.recvfrom(4096)
+    ack = ack_enc.decode()
     if not ack or corrupted(ack):#ToDO
         return;
 
@@ -112,23 +116,40 @@ def storeframe(frame):
     LOCK_FRAME_STORE.release()
     #print("storeframe: released lock frame")
 
-def sendframe(sock, frame):
+#def sendframe(sock, frame):
+#    #print("In Send Frame seqNO = "+str(frame.header.seq_no))
+#    #print(frame.header.checksum)
+#    #print(frame.header.packet_type)
+#    #print(frame.data)
+#    frame_data = frame.getframe()
+#    #sock.sendall(frame_data.encode())
+#    sock.sendto(frame_data.encode(), )
+
+def sendframe(frame):
+    global sock
+    global SERVER_IP
+    global SERVER_PORT
     #print("In Send Frame seqNO = "+str(frame.header.seq_no))
     #print(frame.header.checksum)
     #print(frame.header.packet_type)
     #print(frame.data)
     frame_data = frame.getframe()
-    sock.sendall(frame_data.encode())
+    #sock.sendall(frame_data.encode())
+    sock.sendto(frame_data.encode(), (SERVER_IP, SERVER_PORT))
 
 def timeout(signum, x):
-    print("timeout")
+
+    LOCK_FRAME_STORE.acquire()
+    print("Timeout, sequence number = "+str(FRAME_STORE[0].header.seq_no))
+    LOCK_FRAME_STORE.release()
     global sock
     signal.setitimer(timer, RTO);
 
     LOCK_FRAME_STORE.acquire()
     for each in FRAME_STORE:
         each_copy = copy.copy(each)
-        sendframe(sock, each_copy)
+        #sendframe(sock, each_copy)
+        sendframe(each_copy)
     LOCK_FRAME_STORE.release()
 
 if __name__ == '__main__':
@@ -138,9 +159,10 @@ if __name__ == '__main__':
     WINDOW_SIZE = int(sys.argv[4])
     MSS = int(sys.argv[5])
 
-    server_ip = socket.gethostbyname(SEVER_NAME)
+    #server_ip = socket.gethostbyname(SEVER_NAME)
+    SERVER_IP = socket.gethostbyname(SEVER_NAME)
 
-    sock.connect((server_ip, SERVER_PORT))
+    #sock.connect((server_ip, SERVER_PORT))
 
     signal.signal(signal.SIGALRM, timeout)
 
@@ -168,7 +190,8 @@ if __name__ == '__main__':
         frame = Frame(header, frame_data)
         storeframe(frame)
         #print(frame.header.seq_no, frame.header.checksum, frame.data)
-        sendframe(sock, frame)
+        #sendframe(sock, frame)
+        sendframe(frame)
 
 
         #print("curretn= "+str(signal.getitimer(timer)))

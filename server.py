@@ -9,16 +9,23 @@ DATA=0
 ACK=1
 PACKET_TYPES={DATA:'0101010101010101', ACK:'1010101010101010'}
 
-def sendack(connection, seq_no):
+#def sendack(connection, seq_no):
+#    ack = '{:032b}'.format(seq_no)+\
+#            '{:016b}'.format(0)+\
+#            PACKET_TYPES[ACK]
+#
+#    connection.sendall(ack.encode())
+
+def sendack(connection, addr, seq_no):
     ack = '{:032b}'.format(seq_no)+\
             '{:016b}'.format(0)+\
             PACKET_TYPES[ACK]
 
-    connection.sendall(ack.encode())
+    connection.sendto(ack.encode(), addr)
 
 def corrupted(p, frame):
     r = random.uniform(0, 1)
-    print(r, p)
+    #print(r, p)
     if(r<=p):
         return True;
     else:
@@ -50,25 +57,29 @@ if __name__=='__main__':
 	
     f = open(filename, 'w')
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     sock.bind(('', port))
 
-    sock.listen()
+    #sock.listen()
 
-    connection, client_address = sock.accept();
+    #connection, client_address = sock.accept();
     
     while(True):
         #print("Expected= "+ str(Rn))
-        frame = connection.recv(MAX_FRAME_SIZE).decode()
+        #frame = connection.recv(MAX_FRAME_SIZE).decode()
+        frame_enc, addr = sock.recvfrom(MAX_FRAME_SIZE)
         #print(frame)
         #print_pro(frame)
+
+        frame = frame_enc.decode()
 
         if not frame:
             continue
         
         seq_no, data = disassemble(frame)
-        print(seq_no)
+        #print(seq_no)
         #print(data)
 
         #print(seq_no, data)
@@ -84,5 +95,6 @@ if __name__=='__main__':
             #print("Received "+ str(Rn))
             f.write(data)
             Rn += 1;
-            sendack(connection, Rn)
+            #sendack(connection, Rn)
+            sendack(sock, addr, Rn)
 
