@@ -19,7 +19,7 @@ LOCK_SEQ_NO = threading.Lock()
 FRAME_STORE = []
 LOCK_FRAME_STORE = threading.Lock()
 
-RTO = 5
+RTO = 0.5
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM);
 
 timer = signal.ITIMER_REAL
@@ -69,7 +69,8 @@ def recv_acks():
         store_size = len(FRAME_STORE);
         if(ack_no > SEQ_NO-store_size  and ack_no <= SEQ_NO):
             for i in range(store_size-(SEQ_NO-ack_no)):
-                FRAME_STORE.pop(0)
+                x = FRAME_STORE.pop(0)
+                print("scraped = "+str(x.header.seq_no))
             signal.setitimer(timer, 0)
         LOCK_SEQ_NO.release()
         LOCK_FRAME_STORE.release()
@@ -80,23 +81,27 @@ def getchecksum(data):
 
 
 def storeframe(frame):
+    global SEQ_NO
     while(True):
         LOCK_FRAME_STORE.acquire()
         if(len(FRAME_STORE) >= WINDOW_SIZE):
             LOCK_FRAME_STORE.release()
-            #time.sleep(1);
+            time.sleep(1);
         else:
             LOCK_FRAME_STORE.release()
             break;
     LOCK_FRAME_STORE.acquire()
+    LOCK_SEQ_NO.acquire()
     FRAME_STORE.append(frame)
+    SEQ_NO += 1
+    LOCK_SEQ_NO.release()
     LOCK_FRAME_STORE.release()
 
 def sendframe(sock, frame):
-    print(frame.header.seq_no)
-    print(frame.header.checksum)
-    print(frame.header.packet_type)
-    print(frame.data)
+    print("In Send Frame seqNO = "+str(frame.header.seq_no))
+    #print(frame.header.checksum)
+    #print(frame.header.packet_type)
+    #print(frame.data)
     frame_data = frame.getframe()
     sock.sendall(frame_data.encode())
 
@@ -104,6 +109,7 @@ def timeout(signum, x):
     print("timeout")
     global sock
     signal.setitimer(timer, RTO);
+
     LOCK_FRAME_STORE.acquire()
     for each in FRAME_STORE:
         each_copy = copy.copy(each)
@@ -136,26 +142,23 @@ if __name__ == '__main__':
 
     while(SEQ_NO < total):
         if(SEQ_NO == total-1):
-            print("entireleft")
+            #print("entireleft")
             frame_data = data[SEQ_NO*MSS:]
         else:
-            print("just MSS")
+            #print("just MSS")
             frame_data = data[SEQ_NO*MSS:(SEQ_NO+1)*MSS]
 
         checksum = getchecksum(frame_data)
         header = Header(SEQ_NO, checksum, DATA);
         frame = Frame(header, frame_data)
         storeframe(frame)
-        print(frame.header.seq_no, frame.header.checksum, frame.data)
+        #print(frame.header.seq_no, frame.header.checksum, frame.data)
         sendframe(sock, frame)
 
-        LOCK_SEQ_NO.acquire()
-        SEQ_NO += 1
-        LOCK_SEQ_NO.release()
 
-        print("curretn= "+str(signal.getitimer(timer)))
+        #print("curretn= "+str(signal.getitimer(timer)))
         if(signal.getitimer(timer)[0] == 0):
-            print("timer")
+            #print("timer")
             signal.setitimer(timer, RTO)
 
 
