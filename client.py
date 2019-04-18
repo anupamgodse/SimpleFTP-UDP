@@ -52,28 +52,33 @@ def corrupted(ack):
     return False;
 
 def recv_acks():
-    print("I am receiver")
+    #print("I am receiver")
     global sock
     global FRAME_STORE
     global SEQ_NO
-    while(True):
-        ack = sock.recv(4096).decode()
-        if not ack or corrupted(ack):#ToDO
-            continue;
+    #while(True):
+    ack = sock.recv(4096).decode()
+    if not ack or corrupted(ack):#ToDO
+        return;
 
-        ack_no = int(ack[:32], 2)
-        print("ack_no= "+str(ack_no))
+    ack_no = int(ack[:32], 2)
+    #print("ack_no= "+str(ack_no))
 
-        LOCK_FRAME_STORE.acquire()
-        LOCK_SEQ_NO.acquire()
-        store_size = len(FRAME_STORE);
-        if(ack_no > SEQ_NO-store_size  and ack_no <= SEQ_NO):
-            for i in range(store_size-(SEQ_NO-ack_no)):
-                x = FRAME_STORE.pop(0)
-                print("scraped = "+str(x.header.seq_no))
-            signal.setitimer(timer, 0)
-        LOCK_SEQ_NO.release()
-        LOCK_FRAME_STORE.release()
+    #print("recv_acks: acquiring lock frame")
+    LOCK_FRAME_STORE.acquire()
+    #print("recv_acks: acquired lock frame")
+    #print("recv_acks: acquiring lock SEQ")
+    LOCK_SEQ_NO.acquire()
+    #print("recv_acks: acquired lock SEQ")
+    store_size = len(FRAME_STORE);
+    if(ack_no > SEQ_NO-store_size  and ack_no <= SEQ_NO):
+        for i in range(store_size-(SEQ_NO-ack_no)):
+            x = FRAME_STORE.pop(0)
+            #print("scraped = "+str(x.header.seq_no))
+        signal.setitimer(timer, 0)
+    LOCK_SEQ_NO.release()
+    LOCK_FRAME_STORE.release()
+    #print("recv_acks: released locks")
 
 
 def getchecksum(data):
@@ -83,22 +88,32 @@ def getchecksum(data):
 def storeframe(frame):
     global SEQ_NO
     while(True):
+        #print("storeframe: acquiring lock frame")
         LOCK_FRAME_STORE.acquire()
+        #print("storeframe: acquired lock frame")
         if(len(FRAME_STORE) >= WINDOW_SIZE):
             LOCK_FRAME_STORE.release()
+            #print("storeframe: released locks")
             time.sleep(1);
         else:
             LOCK_FRAME_STORE.release()
+            #print("storeframe: released locks")
             break;
+    #print("storeframe: acquiring lock frame")
     LOCK_FRAME_STORE.acquire()
+    #print("storeframe: acquired lock frame")
+    #print("storeframe: acquiring lock SEQ")
     LOCK_SEQ_NO.acquire()
+    #print("storeframe: acquired lock SEQ")
     FRAME_STORE.append(frame)
     SEQ_NO += 1
     LOCK_SEQ_NO.release()
+    #print("storeframe: releasing lock frame")
     LOCK_FRAME_STORE.release()
+    #print("storeframe: released lock frame")
 
 def sendframe(sock, frame):
-    print("In Send Frame seqNO = "+str(frame.header.seq_no))
+    #print("In Send Frame seqNO = "+str(frame.header.seq_no))
     #print(frame.header.checksum)
     #print(frame.header.packet_type)
     #print(frame.data)
@@ -129,8 +144,8 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGALRM, timeout)
 
-    r = threading.Thread(target=recv_acks)
-    r.start()
+    #r = threading.Thread(target=recv_acks)
+    #r.start()
 
     f = open(FILENAME, 'r')
 
@@ -161,8 +176,10 @@ if __name__ == '__main__':
             #print("timer")
             signal.setitimer(timer, RTO)
 
+        recv_acks()
 
 
-    r.join()
+
+    #r.join()
 
     print("Done")

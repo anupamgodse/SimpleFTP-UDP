@@ -59,7 +59,7 @@ if __name__=='__main__':
     connection, client_address = sock.accept();
     
     while(True):
-        print("Expected= "+ str(Rn))
+        #print("Expected= "+ str(Rn))
         frame = connection.recv(MAX_FRAME_SIZE).decode()
         #print(frame)
         #print_pro(frame)
@@ -81,7 +81,7 @@ if __name__=='__main__':
         #print(Rn)
 
         if(seq_no == Rn):
-            print("Received "+ str(Rn))
+            #print("Received "+ str(Rn))
             f.write(data)
             Rn += 1;
             sendack(connection, Rn)
