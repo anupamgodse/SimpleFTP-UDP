@@ -4,28 +4,21 @@ import random
 
 Rn = 0;
 
-MAX_FRAME_SIZE=1064;
+MAX_FRAME_SIZE=1008;
 DATA=0
 ACK=1
 PACKET_TYPES={DATA:'0101010101010101', ACK:'1010101010101010'}
 
-#def sendack(connection, seq_no):
-#    ack = '{:032b}'.format(seq_no)+\
-#            '{:016b}'.format(0)+\
-#            PACKET_TYPES[ACK]
-#
-#    connection.sendall(ack.encode())
-
 def sendack(connection, addr, seq_no):
-    ack = '{:032b}'.format(seq_no)+\
-            '{:016b}'.format(0)+\
-            PACKET_TYPES[ACK]
+    zero=0
+    ack = seq_no.to_bytes(4, 'big')+\
+            zero.to_bytes(2, 'big')+\
+            int(PACKET_TYPES[ACK], 2).to_bytes(2, 'big')
 
-    connection.sendto(ack.encode(), addr)
+    connection.sendto(ack, addr)
 
 def corrupted(p, frame):
     r = random.uniform(0, 1)
-    #print(r, p)
     if(r<=p):
         return True;
     else:
@@ -33,22 +26,13 @@ def corrupted(p, frame):
     
 def disassemble(frame):
     try:
-        seq_no = int(frame[:32], 2)
-        #print(seq_no)
-        data = frame[64:]
+        seq_no = int.from_bytes(frame[:4], 'big')
+        data = frame[8:].decode()
         return (seq_no, data)
     except:
         print(frame[:100])
         print("BAD frame")
         exit(0)
-
-def print_pro(frame):
-    print(frame[:32]);
-    print(frame[32:48])
-    print(frame[48:64])
-    print(frame[64:])
-
-
 
 if __name__=='__main__':
     port = int(sys.argv[1])
@@ -57,44 +41,23 @@ if __name__=='__main__':
 	
     f = open(filename, 'w')
 
-    #sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     sock.bind(('', port))
 
-    #sock.listen()
-
-    #connection, client_address = sock.accept();
-    
     while(True):
-        #print("Expected= "+ str(Rn))
-        #frame = connection.recv(MAX_FRAME_SIZE).decode()
-        frame_enc, addr = sock.recvfrom(MAX_FRAME_SIZE)
-        #print(frame)
-        #print_pro(frame)
-
-        frame = frame_enc.decode()
+        frame, addr = sock.recvfrom(MAX_FRAME_SIZE)
 
         if not frame:
             continue
         
         seq_no, data = disassemble(frame)
-        #print(seq_no)
-        #print(data)
-
-        #print(seq_no, data)
 
         if(corrupted(p, frame)):
             print("Packet loss, sequence number = "+str(seq_no))  
             continue;
 
-        #print(seq_no)
-        #print(Rn)
-
         if(seq_no == Rn):
-            #print("Received "+ str(Rn))
             f.write(data)
             Rn += 1;
-            #sendack(connection, Rn)
             sendack(sock, addr, Rn)
-
