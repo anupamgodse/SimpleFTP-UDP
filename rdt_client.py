@@ -22,7 +22,7 @@ LOCK_SEQ_NO = threading.Lock()
 FRAME_STORE = []
 LOCK_FRAME_STORE = threading.Lock()
 
-RTO = 2
+RTO = 0.1
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM);
 
 timer = signal.ITIMER_REAL
