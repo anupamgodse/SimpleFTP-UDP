@@ -22,7 +22,7 @@ LOCK_SEQ_NO = threading.Lock()
 FRAME_STORE = []
 LOCK_FRAME_STORE = threading.Lock()
 
-RTO = 0.5
+RTO = 2
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM);
 
 timer = signal.ITIMER_REAL
@@ -156,6 +156,14 @@ def rdt_send():
 
 
 if __name__ == '__main__':
+    #global SERVER_NAME
+    #global SERVER_PORT
+    #global FILENAME
+    #global WINDOW_SIZE
+    #global MSS
+    #global SERVER_IP
+
+
     SEVER_NAME = sys.argv[1]
     SERVER_PORT = int(sys.argv[2])
     FILENAME = sys.argv[3]
@@ -163,6 +171,7 @@ if __name__ == '__main__':
     MSS = int(sys.argv[5])
 
     SERVER_IP = socket.gethostbyname(SEVER_NAME)
+    print(SERVER_IP)
     #SERVER_IP = '152.46.17.131'
 
     signal.signal(signal.SIGALRM, timeout)

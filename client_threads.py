@@ -62,7 +62,7 @@ def recv_acks():
         ack, server_addr = sock.recvfrom(4096)
         if not ack or corrupted(ack):#ToDO
             print("No ack")
-            continue:
+            continue
 
         ack_no = int.from_bytes(ack[:4], 'big');
         print(ack_no)
