@@ -5,6 +5,7 @@ import socket
 import time
 import copy
 import math
+from threading import Condition
 
 DATA=0
 ACK=1
@@ -34,6 +35,8 @@ rdt_sent_upto = 0
 done = False
 
 last_ack = None
+
+
 
 class Header:
     def __init__(self, seq_no, checksum, packet_type):
@@ -109,7 +112,7 @@ def storeframe(frame):
         LOCK_FRAME_STORE.acquire()
         if(len(FRAME_STORE) >= WINDOW_SIZE):
             LOCK_FRAME_STORE.release()
-            time.sleep(1);
+            time.sleep(0.05);
         else:
             LOCK_FRAME_STORE.release()
             break;
