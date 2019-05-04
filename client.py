@@ -21,7 +21,8 @@ not_sent_all = True
 SEQ_NO = 0
 LOCK_SEQ_NO = threading.Lock()
 FRAME_STORE = []
-LOCK_FRAME_STORE = threading.Lock()
+
+cv = Condition()
 
 RTO = 0.1
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM);
@@ -80,15 +81,16 @@ def recv_acks():
         if(ack_no == last_ack):
             not_sent_all = False
             
-        LOCK_FRAME_STORE.acquire()
+        cv.acquire()
         LOCK_SEQ_NO.acquire()
         store_size = len(FRAME_STORE);
         if(ack_no > SEQ_NO-store_size  and ack_no <= SEQ_NO):
             for i in range(store_size-(SEQ_NO-ack_no)):
                 x = FRAME_STORE.pop(0)
+            cv.notify_all()
             signal.setitimer(timer, 0)
         LOCK_SEQ_NO.release()
-        LOCK_FRAME_STORE.release()
+        cv.release()
 
 
 def getchecksum(data):
@@ -108,20 +110,14 @@ def getchecksum(data):
 
 def storeframe(frame):
     global SEQ_NO
-    while(True):
-        LOCK_FRAME_STORE.acquire()
-        if(len(FRAME_STORE) >= WINDOW_SIZE):
-            LOCK_FRAME_STORE.release()
-            time.sleep(0.05);
-        else:
-            LOCK_FRAME_STORE.release()
-            break;
-    LOCK_FRAME_STORE.acquire()
+    cv.acquire()
+    if(len(FRAME_STORE) >= WINDOW_SIZE):
+        cv.wait()
     LOCK_SEQ_NO.acquire()
     FRAME_STORE.append(frame)
     SEQ_NO += 1
     LOCK_SEQ_NO.release()
-    LOCK_FRAME_STORE.release()
+    cv.release()
 
 def sendframe(frame):
     global sock
@@ -132,16 +128,16 @@ def sendframe(frame):
 
 def timeout(signum, x):
     global sock
-    LOCK_FRAME_STORE.acquire()
+    cv.acquire()
     print("Timeout, sequence number = "+str(FRAME_STORE[0].header.seq_no))
-    LOCK_FRAME_STORE.release()
+    cv.release()
     signal.setitimer(timer, RTO);
 
-    LOCK_FRAME_STORE.acquire()
+    cv.acquire()
     for each in FRAME_STORE:
         each_copy = copy.copy(each)
         sendframe(each_copy)
-    LOCK_FRAME_STORE.release()
+    cv.release()
 
 
 def rdt_send():
@@ -159,13 +155,6 @@ def rdt_send():
 
 
 if __name__ == '__main__':
-    #global SERVER_NAME
-    #global SERVER_PORT
-    #global FILENAME
-    #global WINDOW_SIZE
-    #global MSS
-    #global SERVER_IP
-
 
     SEVER_NAME = sys.argv[1]
     SERVER_PORT = int(sys.argv[2])
